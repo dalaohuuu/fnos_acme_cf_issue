@@ -31,9 +31,6 @@
 1. 使用 `acme.sh` + Cloudflare DNS API（`dns_cf`）签发证书  
 2. 在飞牛证书目录中创建：
 /usr/trim/var/trim_connect/ssls/<domain>/<timestamp>/
-
-yaml
-复制代码
 3. 写入证书文件：
 - `<domain>.crt`
 - `<domain>.key`
@@ -57,12 +54,12 @@ yaml
 
 ```bash
 mkdir -p ~/fnos-acme && cd ~/fnos-acme
+```
 然后以 root 身份创建 ENV_FILE：
 用您自己的域名和Cloudflare API Token，替换下段代码中的：
-fn.example.com 和 PASTE_YOUR_CLOUDFLARE_API_TOKEN_HERE
+fn.example.com 和 PASTE_YOUR_CLOUDFLARE_API_TOKEN_HERE 后粘贴到命令行。
 
-bash
-复制代码
+```
 sudo -i
 tee ENV_FILE <<'EOF'
 DOMAIN=fn.example.com
@@ -91,33 +88,37 @@ RELOAD_CMD="systemctl restart webdav.service smbftpd.service trim_nginx.service"
 # 清理旧证书目录（天）
 CLEAN_OLD_DAYS=90
 EOF
+
+```
 编辑并填写真实值：
 
-bash
-复制代码
+```
 nano ENV_FILE
+```
 ⚠️ ENV_FILE 包含敏感信息，请妥善保管，不要上传到 GitHub
 
 Step 2：下载脚本
 仍在同一目录下执行：
 
-bash
-复制代码
+```
 curl -fsSL \
 https://raw.githubusercontent.com/dalaohuuu/fnos_acme_cf_issue/refs/heads/main/fnos_acme_cf_issue.sh \
 -o fnos_acme_cf_issue.sh
-
+```
+```
 chmod +x fnos_acme_cf_issue.sh
+```
 Step 3：第一次运行（dry-run，强烈推荐）
-bash
-复制代码
+```
 sudo -i
+```
+```
 ./fnos_acme_cf_issue.sh
+```
 或显式指定：
-
-bash
-复制代码
+```
 ./fnos_acme_cf_issue.sh --dry-run
+```
 dry-run 模式下：
 
 不会真正修改系统
@@ -131,10 +132,12 @@ dry-run 模式下：
 请认真检查输出。
 
 Step 4：确认无误后，正式执行
-bash
-复制代码
+```
 sudo -i
+```
+```
 ./fnos_acme_cf_issue.sh --apply
+```
 这一步会真正：
 
 签发证书
