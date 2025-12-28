@@ -56,11 +56,13 @@
 mkdir -p ~/fnos-acme && cd ~/fnos-acme
 ```
 然后以 root 身份创建 ENV_FILE：
-用您自己的域名和Cloudflare API Token，替换下段代码中的：
-fn.example.com 和 PASTE_YOUR_CLOUDFLARE_API_TOKEN_HERE 后粘贴到命令行。
-
+获取root权限：
 ```
 sudo -i
+```
+用您自己的域名和Cloudflare API Token，替换下段代码中的：
+fn.example.com 和 PASTE_YOUR_CLOUDFLARE_API_TOKEN_HERE 后粘贴到命令行:
+```
 tee ENV_FILE <<'EOF'
 DOMAIN=fn.example.com
 WILDCARD=yes
@@ -89,11 +91,6 @@ RELOAD_CMD="systemctl restart webdav.service smbftpd.service trim_nginx.service"
 CLEAN_OLD_DAYS=90
 EOF
 
-```
-编辑并填写真实值：
-
-```
-nano ENV_FILE
 ```
 ⚠️ ENV_FILE 包含敏感信息，请妥善保管，不要上传到 GitHub
 
