@@ -18,7 +18,7 @@
 
 ## 适用场景
 
-- 飞牛 OS（FnOS），版本号：fn OS 1.1.8
+- 飞牛 OS（FnOS）
 - 没有公网 IP / 内网环境
 - DNS 托管在 **Cloudflare**
 - 需要使用 **DNS-01** 方式申请 / 续期证书
@@ -94,7 +94,7 @@ EOF
 ```
 ⚠️ ENV_FILE 包含敏感信息，请妥善保管，不要上传到 GitHub
 
-Step 2：下载脚本
+### Step 2：下载脚本
 仍在同一目录下执行：
 
 ```
@@ -105,7 +105,7 @@ https://raw.githubusercontent.com/dalaohuuu/fnos_acme_cf_issue/refs/heads/main/f
 ```
 chmod +x fnos_acme_cf_issue.sh
 ```
-Step 3：第一次运行（dry-run，强烈推荐）
+### Step 3：第一次运行（dry-run，强烈推荐）
 ```
 sudo -i
 ```
@@ -128,7 +128,7 @@ dry-run 模式下：
 
 请认真检查输出。
 
-Step 4：确认无误后，正式执行
+### Step 4：确认无误后，正式执行
 ```
 sudo -i
 ```
@@ -146,18 +146,21 @@ sudo -i
 更新 nginx 配置
 
 重启服务
+### Step 5:首次使用，需要到飞牛管理界面切换为刚申请的证书
+"首次申请证书，需登录飞牛网页手动切换证书，方法："
+"系统设置——安全性——证书——服务配置——切换刚申请的证书。"
 
-常见问题
-Q1：为什么必须先创建 ENV_FILE？
+### 常见问题
+#### Q1：为什么必须先创建 ENV_FILE？
 脚本启动时会立即读取 ENV_FILE，如果不存在会直接退出，以防止误操作。
 
-Q2：为什么默认是 dry-run？
+#### Q2：为什么默认是 dry-run？
 为了安全。示例脚本默认不改系统，只有显式 --apply 才会真正执行。
 
-Q3：是否支持自动续期？
+#### Q3：是否支持自动续期？
 支持。acme.sh 会自动安装 cron 任务，后续续期仍会执行同样流程。
 
-安全建议（强烈）
+## 安全建议（强烈）
 不要把 ENV_FILE 提交到 Git 仓库
 
 定期轮换 Cloudflare API Token
@@ -170,7 +173,7 @@ Q3：是否支持自动续期？
 
 /usr/trim/var/trim_connect/ssls/<domain>/
 
-License
+## License
 MIT License
 
 免责声明
