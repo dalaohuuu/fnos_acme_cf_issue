@@ -30,7 +30,7 @@
 
 1. 使用 `acme.sh` + Cloudflare DNS API（`dns_cf`）签发证书  
 2. 在飞牛证书目录中创建：
-"/usr/trim/var/trim_connect/ssls/<domain>/<timestamp>/"
+/usr/trim/var/trim_connect/ssls/&lt;domain&gt;/&lt;timestamp&gt;/
 3. 写入证书文件：
 - `<domain>.crt`
 - `<domain>.key`
