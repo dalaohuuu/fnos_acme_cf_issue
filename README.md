@@ -30,7 +30,7 @@
 
 1. 使用 `acme.sh` + Cloudflare DNS API（`dns_cf`）签发证书  
 2. 在飞牛证书目录中创建：
-/usr/trim/var/trim_connect/ssls/<domain>/<timestamp>/
+目录/usr/trim/var/trim_connect/ssls/<domain>/<timestamp>/
 3. 写入证书文件：
 - `<domain>.crt`
 - `<domain>.key`
@@ -43,6 +43,11 @@
 ---
 
 ## 3.使用步骤（请严格按顺序）
+需使用root运行：
+获取root权限：
+```
+sudo -i
+```
 
 ---
 
@@ -52,14 +57,11 @@
 
 在任意工作目录（建议单独建一个目录）执行：
 
-```bash
+```
 mkdir -p ~/fnos-acme && cd ~/fnos-acme
 ```
 然后以 root 身份创建 ENV_FILE：
-获取root权限：
-```
-sudo -i
-```
+
 用您自己的域名和Cloudflare API Token，替换下段代码中的：
 fn.example.com 和 PASTE_YOUR_CLOUDFLARE_API_TOKEN_HERE 后粘贴到命令行:
 ```
@@ -107,9 +109,6 @@ chmod +x fnos_acme_cf_issue.sh
 ```
 ### 3.3：第一次运行（dry-run，强烈推荐）
 ```
-sudo -i
-```
-```
 ./fnos_acme_cf_issue.sh
 ```
 或显式指定：
@@ -129,9 +128,6 @@ dry-run 模式下：
 请认真检查输出。
 
 ### 3.4：确认无误后，正式执行
-```
-sudo -i
-```
 ```
 ./fnos_acme_cf_issue.sh --apply
 ```
