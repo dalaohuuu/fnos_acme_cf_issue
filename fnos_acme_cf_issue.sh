@@ -2,17 +2,17 @@
 set -euo pipefail
 
 # =========================================================
-# FnOS + acme.sh + Cloudflare DNS (dns_cf) 证书自动化（示例脚本）
+# FnOS + acme.sh + Cloudflare DNS (dns_cf) 示例脚本
 #
-# - 默认 dry-run：只打印将执行的命令，不修改系统
+# - 默认 dry-run：只打印将执行的操作，不修改系统
 # - --apply 才会真实执行：签发证书、写入飞牛目录、更新DB/配置、重启服务
-#
-# 配置文件：脚本同目录下 ENV_FILE
+# - 配置文件：脚本同目录下 ENV_FILE
+# - 依赖自动安装：仅处理 socat（Debian/Ubuntu: apt install socat）
 # =========================================================
 
 MODE="dry-run"
 case "${1:-}" in
-  --apply)   MODE="apply" ;;
+  --apply) MODE="apply" ;;
   --dry-run|"") MODE="dry-run" ;;
   *)
     echo "Usage: $0 [--dry-run|--apply]"
@@ -27,35 +27,31 @@ ENV_PATH="${SCRIPT_DIR}/ENV_FILE"
 
 if [[ ! -f "${ENV_PATH}" ]]; then
   echo "❌ 未找到 ENV_FILE：${ENV_PATH}"
-  echo "   请先按 README 使用 tee 创建 ENV_FILE 并填写配置。"
+  echo "   请先按 README 用 tee 创建 ENV_FILE 并填写配置。"
   exit 1
 fi
 
 # shellcheck disable=SC1090
 source "${ENV_PATH}"
 
-need_var() { [[ -n "${!1:-}" ]] || { echo "❌ 缺少配置变量：$1"; exit 1; }; }
+need() { [[ -n "${!1:-}" ]] || { echo "❌ 缺少配置变量：$1"; exit 1; }; }
 
-need_var DOMAIN
-need_var CF_TOKEN
-need_var SSLS_DIR
-need_var NGX_CONF
-need_var DB_NAME
-need_var DB_USER
-need_var RELOAD_CMD
+need DOMAIN
+need CF_TOKEN
+need SSLS_DIR
+need NGX_CONF
+need DB_NAME
+need DB_USER
+need RELOAD_CMD
 
 WILDCARD="${WILDCARD:-yes}"
 DNS_SLEEP="${DNS_SLEEP:-120}"
 CERT_SERVER="${CERT_SERVER:-letsencrypt}"
 CLEAN_OLD_DAYS="${CLEAN_OLD_DAYS:-90}"
 
-if [[ "${MODE}" == "apply" && $EUID -ne 0 ]]; then
-  echo "❌ --apply 需要 root 权限运行（sudo -i 后执行）"
-  exit 1
-fi
-
 log() { echo -e "$*"; }
 
+# dry-run/ apply 统一的执行封装
 run() {
   if [[ "${MODE}" == "apply" ]]; then
     log "▶ $*"
@@ -65,12 +61,43 @@ run() {
   fi
 }
 
+# apply 必须 root
+if [[ "${MODE}" == "apply" && $EUID -ne 0 ]]; then
+  echo "❌ --apply 需要 root 权限运行（sudo -i 后执行）"
+  exit 1
+fi
+
+# ============ 仅处理 socat 的依赖 ============
+HAVE_SOCAT="yes"
+if ! command -v socat >/dev/null 2>&1; then
+  HAVE_SOCAT="no"
+fi
+
+if [[ "${MODE}" == "dry-run" ]]; then
+  if [[ "${HAVE_SOCAT}" == "no" ]]; then
+    log "==> dry-run：检测到缺少依赖 socat（不会自动安装）"
+    log "    在 --apply 模式下将自动尝试使用 apt 安装 socat"
+  else
+    log "==> dry-run：依赖 socat 已满足"
+  fi
+fi
+
+if [[ "${MODE}" == "apply" && "${HAVE_SOCAT}" == "no" ]]; then
+  log "==> 安装依赖 socat ..."
+  if command -v apt >/dev/null 2>&1; then
+    apt update -y
+    apt install -y socat
+  else
+    echo "❌ 未找到 apt，无法自动安装 socat，请手动安装后再运行。"
+    exit 1
+  fi
+fi
+
+# 基本命令检查（不自动装，缺了就提示）
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "❌ 缺少命令：$1"; exit 1; }
 }
-
-# 最基础的命令检查（dry-run 也检查，避免用户 apply 时才踩坑）
-for c in curl socat openssl psql sed awk grep date; do
+for c in curl openssl psql sed awk grep date; do
   require_cmd "$c"
 done
 
@@ -82,10 +109,12 @@ fi
 TT="$(date +%s%3N)"
 ACME="/root/.acme.sh/acme.sh"
 
-# ============ dry-run：不执行 acme、不改系统，只展示计划 ============
+export CF_Token="${CF_TOKEN}"
+
+# ============ dry-run：只展示计划 ============
 if [[ "${MODE}" == "dry-run" ]]; then
   log ""
-  log "==> 将使用以下配置："
+  log "==> dry-run 配置预览："
   log "DOMAIN=${DOMAIN}"
   log "WILDCARD=${WILDCARD}"
   log "DNS_SLEEP=${DNS_SLEEP}"
@@ -97,21 +126,17 @@ if [[ "${MODE}" == "dry-run" ]]; then
   log "RELOAD_CMD=${RELOAD_CMD}"
   log "CLEAN_OLD_DAYS=${CLEAN_OLD_DAYS}"
   log ""
-
-  log "==> 计划执行的关键步骤（不会真正执行）："
-  log "[dry-run] 安装依赖（若缺失）：curl socat ca-certificates openssl postgresql-client"
+  log "==> dry-run 计划执行："
   log "[dry-run] 安装 acme.sh（若未安装）：curl https://get.acme.sh | sh"
   if [[ "${WILDCARD}" == "yes" ]]; then
     log "[dry-run] 签发证书：${ACME} --issue --dns dns_cf --dnssleep ${DNS_SLEEP} -d ${DOMAIN} -d *.${DOMAIN} --server ${CERT_SERVER}"
   else
     log "[dry-run] 签发证书：${ACME} --issue --dns dns_cf --dnssleep ${DNS_SLEEP} -d ${DOMAIN} --server ${CERT_SERVER}"
   fi
-  log "[dry-run] 解析 acme.sh --info 的 CertCreateTime/NextRenewTime 生成时间戳目录"
-  log "[dry-run] 创建目录：${SSLS_DIR}/${DOMAIN}/<timestamp>/"
-  log "[dry-run] install-cert 写入：${DOMAIN}.crt/.key/fullchain.crt/issuer_certificate.crt"
-  log "[dry-run] 更新数据库：trim_connect.cert（插入/更新 domain=${DOMAIN} 的证书路径与有效期等字段）"
+  log "[dry-run] 证书写入目录：${SSLS_DIR}/${DOMAIN}/{timestamp}/"
+  log "[dry-run] 更新数据库：${DB_NAME}.cert（插入/更新 domain=${DOMAIN} 的记录）"
   log "[dry-run] 更新 nginx 配置：${NGX_CONF}"
-  log "[dry-run] 清理旧证书目录：${SSLS_DIR}/${DOMAIN}/ 超过 ${CLEAN_OLD_DAYS} 天"
+  log "[dry-run] 清理旧目录：${SSLS_DIR}/${DOMAIN}/ 超过 ${CLEAN_OLD_DAYS} 天"
   log "[dry-run] 重启服务：${RELOAD_CMD}"
   log ""
   log "✅ dry-run 完成：如确认无误，请执行："
@@ -120,12 +145,7 @@ if [[ "${MODE}" == "dry-run" ]]; then
   exit 0
 fi
 
-# ============ apply：真实执行 ============
-log "==> [0/7] 安装依赖（Debian/Ubuntu 系）..."
-if command -v apt >/dev/null 2>&1; then
-  run "apt update -y"
-  run "apt install -y curl socat ca-certificates openssl postgresql-client"
-fi
+# ===================== apply：真实执行 =====================
 
 log "==> [1/7] 安装 acme.sh（若未安装）..."
 if [[ ! -x "${ACME}" ]]; then
@@ -136,14 +156,12 @@ if [[ ! -x "${ACME}" ]]; then
   exit 1
 fi
 
-log "==> [2/7] 使用 Cloudflare DNS API 签发证书..."
-export CF_Token="${CF_TOKEN}"
-
+log "==> [2/7] 申请证书（Cloudflare DNS）..."
 ISSUE_ARGS=(--force --log --issue --server "${CERT_SERVER}" --dns dns_cf --dnssleep "${DNS_SLEEP}" -d "${DOMAIN}")
 if [[ "${WILDCARD}" == "yes" ]]; then
   ISSUE_ARGS+=(-d "*.${DOMAIN}")
 fi
-run "${ACME} ${ISSUE_ARGS[*]}"
+"${ACME}" "${ISSUE_ARGS[@]}"
 
 log "==> [3/7] 解析证书时间并创建飞牛证书目录..."
 CertCreateTime="$("${ACME}" --info -d "${DOMAIN}" | grep CertCreateTimeStr= | awk -F= '{print $2}' | sed 's|T| |g; s|Z||g')"
@@ -156,13 +174,13 @@ CERT_RENEW_TT="$(date -d "${NextRenewTime} 1 month" +%s%3N)"
 DOMAIN_SSL_DIR="${SSLS_DIR}/${DOMAIN}/${CERT_CREATE_SEC}"
 run "mkdir -p '${DOMAIN_SSL_DIR}'"
 
-log "==> [4/7] install-cert 写入飞牛目录 + 重启服务..."
-run "${ACME} --install-cert -d '${DOMAIN}' \
-  --cert-file '${DOMAIN_SSL_DIR}/${DOMAIN}.crt' \
-  --key-file '${DOMAIN_SSL_DIR}/${DOMAIN}.key' \
-  --fullchain-file '${DOMAIN_SSL_DIR}/fullchain.crt' \
-  --ca-file '${DOMAIN_SSL_DIR}/issuer_certificate.crt' \
-  --reloadcmd \"${RELOAD_CMD}\""
+log "==> [4/7] install-cert 写入飞牛目录并重启服务..."
+"${ACME}" --install-cert -d "${DOMAIN}" \
+  --cert-file      "${DOMAIN_SSL_DIR}/${DOMAIN}.crt" \
+  --key-file       "${DOMAIN_SSL_DIR}/${DOMAIN}.key" \
+  --fullchain-file "${DOMAIN_SSL_DIR}/fullchain.crt" \
+  --ca-file        "${DOMAIN_SSL_DIR}/issuer_certificate.crt" \
+  --reloadcmd      "${RELOAD_CMD}"
 
 run "chmod 755 '${DOMAIN_SSL_DIR}/${DOMAIN}.crt' '${DOMAIN_SSL_DIR}/${DOMAIN}.key' '${DOMAIN_SSL_DIR}/fullchain.crt' '${DOMAIN_SSL_DIR}/issuer_certificate.crt'"
 
@@ -183,8 +201,8 @@ shopt -u nocasematch
 EXIST_DOMAIN="$(psql -t -A -U "${DB_USER}" -d "${DB_NAME}" -c "SELECT domain FROM cert WHERE domain='${DOMAIN}';" | sed '/^\s*$/d' || true)"
 
 if [[ -n "${EXIST_DOMAIN}" ]]; then
-  run "psql -U '${DB_USER}' -d '${DB_NAME}' -c \
-\"UPDATE cert SET
+  psql -U "${DB_USER}" -d "${DB_NAME}" -c \
+"UPDATE cert SET
   valid_from=${CERT_CREATE_TT},
   valid_to=${CERT_RENEW_TT},
   encrypt_type='${ALGO_TYPE}',
@@ -197,11 +215,11 @@ if [[ -n "${EXIST_DOMAIN}" ]]; then
   status='suc',
   created_time=${TT},
   updated_time=${TT}
-WHERE domain='${DOMAIN}';\""
+WHERE domain='${DOMAIN}';" >/dev/null
 else
   DOMAIN_ID="$(( $(psql -t -A -U "${DB_USER}" -d "${DB_NAME}" -c "SELECT id FROM cert ORDER BY id ASC;" | awk 'END{print}' | sed '/^\s*$/d') + 1 ))"
-  run "psql -U '${DB_USER}' -d '${DB_NAME}' -c \
-\"INSERT INTO cert VALUES (
+  psql -U "${DB_USER}" -d "${DB_NAME}" -c \
+"INSERT INTO cert VALUES (
   ${DOMAIN_ID},
   '${DOMAIN}',
   '*.${DOMAIN},${DOMAIN}',
@@ -221,7 +239,7 @@ else
   'suc',
   ${TT},
   ${TT}
-);\""
+);" >/dev/null
 fi
 
 log "==> [6/7] 更新飞牛 nginx 证书配置..."
