@@ -67,6 +67,7 @@ fn.example.com 和 PASTE_YOUR_CLOUDFLARE_API_TOKEN_HERE 后粘贴到命令行:
 ```
 tee ENV_FILE <<'EOF'
 DOMAIN=fn.example.com
+#yes:申请泛域名；no：不申请泛域名
 WILDCARD=yes
 
 # Cloudflare API Token
