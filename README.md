@@ -183,15 +183,6 @@ MIT License
 本项目为 非官方示例脚本，仅供学习与参考。
 因使用本脚本造成的任何数据丢失、服务中断或系统损坏，作者不承担任何责任。
 
-## 7.Stargazers over time
-<h2>Stargazers over time</h2>
+## Stargazers over time
 
-<p align="center">
-  <a href="https://starchart.cc/dalaohuuu/fnos_acme_cf_issue">
-    <img
-      src="https://starchart.cc/dalaohuuu/fnos_acme_cf_issue.svg"
-      alt="Stargazers over time"
-      style="max-width: 100%;"
-    />
-  </a>
-</p>
+[![Stargazers over time](https://starchart.cc/dalaohuuu/fnos_acme_cf_issue.svg)](https://starchart.cc/dalaohuuu/fnos_acme_cf_issue)
